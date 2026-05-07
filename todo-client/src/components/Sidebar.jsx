@@ -1,11 +1,25 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import api from '../api/axios';
+import { useTheme } from '../context/ThemeContext';
 
-function Sidebar({ user, lists, selectedList, onSelectList, onListCreated, onListDeleted, onLogout }) {
+function Sidebar({ user, lists, selectedList, onSelectList, onListCreated, onListDeleted, onLogout, onOpenSettings }) {
+  const { theme } = useTheme();
   const [newListName, setNewListName] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [error, setError] = useState('');
   const [hoveredListId, setHoveredListId] = useState(null);
+  const installPromptRef = useRef(null);
+  const [showInstallBtn, setShowInstallBtn] = useState(false);
+
+  useEffect(() => {
+    const handler = (e) => {
+      e.preventDefault();
+      installPromptRef.current = e;
+      setShowInstallBtn(true);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
 
   const handleCreateList = async () => {
     if (!newListName.trim()) return;
@@ -22,9 +36,7 @@ function Sidebar({ user, lists, selectedList, onSelectList, onListCreated, onLis
   };
 
   const handleDeleteList = async (e, listId) => {
-    // Stop the click from also selecting the list
     e.stopPropagation();
-
     try {
       await api.delete(`/lists/${listId}`);
       onListDeleted(listId);
@@ -42,15 +54,15 @@ function Sidebar({ user, lists, selectedList, onSelectList, onListCreated, onLis
   };
 
   return (
-    <aside style={styles.sidebar}>
+    <aside style={{ ...styles.sidebar, backgroundColor: theme.sidebarBg, borderRight: `1px solid ${theme.sidebarBorder}` }}>
 
       {/* Header */}
-      <div style={styles.header}>
-        <div style={styles.avatar}>
+      <div style={{ ...styles.header, borderBottom: `1px solid ${theme.sidebarBorder}` }}>
+        <div style={{ ...styles.avatar, backgroundColor: theme.accent }}>
           {user?.email?.[0].toUpperCase()}
         </div>
-        <span style={styles.email}>{user?.email}</span>
-        <button style={styles.logoutBtn} onClick={onLogout}>
+        <span style={{ ...styles.email, color: theme.text }}>{user?.email}</span>
+        <button style={{ ...styles.logoutBtn, color: theme.accent }} onClick={onLogout}>
           Sign out
         </button>
       </div>
@@ -62,18 +74,21 @@ function Sidebar({ user, lists, selectedList, onSelectList, onListCreated, onLis
             key={list.id}
             style={{
               ...styles.listItem,
-              ...(selectedList?.id === list.id ? styles.listItemActive : {}),
+              ...(selectedList?.id === list.id
+                ? { backgroundColor: theme.sidebarActiveItem }
+                : {}),
             }}
             onClick={() => onSelectList(list)}
             onMouseEnter={() => setHoveredListId(list.id)}
             onMouseLeave={() => setHoveredListId(null)}
           >
             <span style={styles.listDot(list.color)} />
-            <span style={styles.listName}>{list.name}</span>
+            <span style={{ ...styles.listName, color: theme.text }}>{list.name}</span>
             <button
               style={{
                 ...styles.deleteBtn,
                 opacity: hoveredListId === list.id ? 1 : 0,
+                color: theme.textMuted,
               }}
               onClick={(e) => handleDeleteList(e, list.id)}
             >
@@ -84,11 +99,11 @@ function Sidebar({ user, lists, selectedList, onSelectList, onListCreated, onLis
       </nav>
 
       {/* Add New List */}
-      <div style={styles.addSection}>
+      <div style={{ ...styles.addSection, borderTop: `1px solid ${theme.sidebarBorder}` }}>
         {isAdding ? (
           <div style={styles.addForm}>
             <input
-              style={styles.addInput}
+              style={{ ...styles.addInput, borderColor: theme.accent, color: theme.text, backgroundColor: theme.panelBg }}
               type="text"
               placeholder="List name"
               value={newListName}
@@ -97,15 +112,12 @@ function Sidebar({ user, lists, selectedList, onSelectList, onListCreated, onLis
               autoFocus
             />
             <div style={styles.addActions}>
-              <button style={styles.addConfirmBtn} onClick={handleCreateList}>
+              <button style={{ ...styles.addConfirmBtn, backgroundColor: theme.accent }} onClick={handleCreateList}>
                 Add
               </button>
               <button
-                style={styles.addCancelBtn}
-                onClick={() => {
-                  setIsAdding(false);
-                  setNewListName('');
-                }}
+                style={{ ...styles.addCancelBtn, color: theme.textSecondary, borderColor: theme.inputBorder }}
+                onClick={() => { setIsAdding(false); setNewListName(''); }}
               >
                 Cancel
               </button>
@@ -113,9 +125,38 @@ function Sidebar({ user, lists, selectedList, onSelectList, onListCreated, onLis
             {error && <p style={styles.error}>{error}</p>}
           </div>
         ) : (
-          <button style={styles.newListBtn} onClick={() => setIsAdding(true)}>
-            + New list
-          </button>
+          <>
+            {showInstallBtn && (
+              <button
+                style={{ ...styles.installBtn, color: theme.accent, borderColor: theme.accent }}
+                onClick={async () => {
+                  const prompt = installPromptRef.current;
+                  if (!prompt) return;
+                  prompt.prompt();
+                  await prompt.userChoice;
+                  installPromptRef.current = null;
+                  setShowInstallBtn(false);
+                }}
+              >
+                ↓ Install App
+              </button>
+            )}
+            <div style={styles.bottomRow}>
+              <button
+                style={{ ...styles.newListBtn, color: theme.accent, borderColor: theme.accent }}
+                onClick={() => setIsAdding(true)}
+              >
+                + New list
+              </button>
+              <button
+                style={{ ...styles.settingsBtn, color: theme.textMuted }}
+                onClick={onOpenSettings}
+                title="Appearance"
+              >
+                ⚙
+              </button>
+            </div>
+          </>
         )}
       </div>
 
@@ -126,15 +167,12 @@ function Sidebar({ user, lists, selectedList, onSelectList, onListCreated, onLis
 const styles = {
   sidebar: {
     width: '260px',
-    backgroundColor: '#eff6fc',
     display: 'flex',
     flexDirection: 'column',
-    borderRight: '1px solid #dce6f0',
     height: '100vh',
   },
   header: {
     padding: '20px 16px 16px',
-    borderBottom: '1px solid #dce6f0',
     display: 'flex',
     alignItems: 'center',
     gap: '10px',
@@ -144,7 +182,6 @@ const styles = {
     width: '32px',
     height: '32px',
     borderRadius: '50%',
-    backgroundColor: '#2564cf',
     color: '#fff',
     display: 'flex',
     alignItems: 'center',
@@ -155,7 +192,6 @@ const styles = {
   },
   email: {
     fontSize: '13px',
-    color: '#333',
     flex: 1,
     overflow: 'hidden',
     textOverflow: 'ellipsis',
@@ -163,7 +199,6 @@ const styles = {
   },
   logoutBtn: {
     fontSize: '12px',
-    color: '#2564cf',
     background: 'none',
     border: 'none',
     cursor: 'pointer',
@@ -183,10 +218,6 @@ const styles = {
     cursor: 'pointer',
     borderRadius: '4px',
     margin: '0 8px',
-    position: 'relative',
-  },
-  listItemActive: {
-    backgroundColor: '#dce6f7',
   },
   listDot: (color) => ({
     width: '10px',
@@ -198,7 +229,6 @@ const styles = {
   listName: {
     flex: 1,
     fontSize: '14px',
-    color: '#1a1a1a',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
@@ -206,7 +236,6 @@ const styles = {
   deleteBtn: {
     background: 'none',
     border: 'none',
-    color: '#999',
     cursor: 'pointer',
     fontSize: '11px',
     padding: '2px 4px',
@@ -214,7 +243,6 @@ const styles = {
   },
   addSection: {
     padding: '12px',
-    borderTop: '1px solid #dce6f0',
   },
   addForm: {
     display: 'flex',
@@ -223,7 +251,7 @@ const styles = {
   },
   addInput: {
     padding: '8px 10px',
-    border: '1px solid #2564cf',
+    border: '1px solid',
     borderRadius: '6px',
     fontSize: '13px',
     outline: 'none',
@@ -235,7 +263,6 @@ const styles = {
   addConfirmBtn: {
     flex: 1,
     padding: '7px',
-    backgroundColor: '#2564cf',
     color: '#fff',
     border: 'none',
     borderRadius: '6px',
@@ -246,22 +273,47 @@ const styles = {
     flex: 1,
     padding: '7px',
     backgroundColor: 'transparent',
-    color: '#666',
-    border: '1px solid #ddd',
+    border: '1px solid',
     borderRadius: '6px',
     fontSize: '13px',
     cursor: 'pointer',
   },
-  newListBtn: {
+  installBtn: {
+    display: 'block',
     width: '100%',
     padding: '9px',
+    marginBottom: '8px',
     backgroundColor: 'transparent',
-    color: '#2564cf',
-    border: '1px dashed #2564cf',
+    border: '1px solid',
     borderRadius: '6px',
     fontSize: '13px',
     cursor: 'pointer',
     textAlign: 'left',
+  },
+  bottomRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+  },
+  newListBtn: {
+    flex: 1,
+    padding: '9px',
+    backgroundColor: 'transparent',
+    border: '1px dashed',
+    borderRadius: '6px',
+    fontSize: '13px',
+    cursor: 'pointer',
+    textAlign: 'left',
+  },
+  settingsBtn: {
+    background: 'none',
+    border: 'none',
+    fontSize: '18px',
+    cursor: 'pointer',
+    padding: '6px',
+    borderRadius: '6px',
+    lineHeight: 1,
+    flexShrink: 0,
   },
   error: {
     color: '#d32f2f',

@@ -1,14 +1,18 @@
 import { useState, useEffect } from 'react';
 import api from '../api/axios';
+import { useTheme } from '../context/ThemeContext';
 import TaskItem from './TaskItem';
 import AddTaskBar from './AddTaskBar';
+import TaskDetail from './TaskDetail';
 
 function TaskList({ selectedList }) {
+  const { theme } = useTheme();
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedTask, setSelectedTask] = useState(null);
 
-  // Fetch tasks whenever the selected list changes
   useEffect(() => {
+    setSelectedTask(null);
     const fetchTasks = async () => {
       setLoading(true);
       try {
@@ -32,87 +36,118 @@ function TaskList({ selectedList }) {
     setTasks((prev) =>
       prev.map((t) => (t.id === updatedTask.id ? updatedTask : t))
     );
+    setSelectedTask((prev) => (prev?.id === updatedTask.id ? updatedTask : prev));
   };
 
   const handleTaskDeleted = (deletedId) => {
     setTasks((prev) => prev.filter((t) => t.id !== deletedId));
+    setSelectedTask((prev) => (prev?.id === deletedId ? null : prev));
   };
 
-  // Split tasks into incomplete and completed
   const incompleteTasks = tasks.filter((t) => !t.is_completed);
   const completedTasks = tasks.filter((t) => t.is_completed);
 
   return (
-    <div style={styles.container}>
+    <div style={{ ...styles.wrapper, backgroundColor: theme.listBg }}>
 
-      {/* List Header */}
-      <div style={styles.header}>
-        <h2 style={styles.title}>{selectedList.name}</h2>
-        <span style={styles.count}>
-          {incompleteTasks.length} remaining
-        </span>
+      {/* Left pane — task list */}
+      <div style={styles.listPane}>
+
+        <div style={{ ...styles.header, borderBottom: `1px solid ${theme.divider}` }}>
+          <h2 style={{ ...styles.title, color: theme.text }}>{selectedList.name}</h2>
+          <span style={{ ...styles.count, color: theme.textMuted }}>
+            {incompleteTasks.length} remaining
+          </span>
+        </div>
+
+        <div style={styles.taskArea}>
+          {loading ? (
+            <p style={{ ...styles.message, color: theme.textMuted }}>Loading tasks...</p>
+          ) : (
+            <>
+              {incompleteTasks.length === 0 && completedTasks.length === 0 && (
+                <p style={{ ...styles.message, color: theme.textMuted }}>No tasks yet. Add one below.</p>
+              )}
+
+              {incompleteTasks.map((task) => (
+                <TaskItem
+                  key={task.id}
+                  task={task}
+                  isSelected={selectedTask?.id === task.id}
+                  onTaskUpdated={handleTaskUpdated}
+                  onTaskDeleted={handleTaskDeleted}
+                  onTaskSelected={setSelectedTask}
+                />
+              ))}
+
+              {completedTasks.length > 0 && (
+                <div style={{ ...styles.completedSection, borderTop: `1px solid ${theme.divider}` }}>
+                  <p style={{ ...styles.completedLabel, color: theme.textMuted }}>
+                    Completed ({completedTasks.length})
+                  </p>
+                  {completedTasks.map((task) => (
+                    <TaskItem
+                      key={task.id}
+                      task={task}
+                      isSelected={selectedTask?.id === task.id}
+                      onTaskUpdated={handleTaskUpdated}
+                      onTaskDeleted={handleTaskDeleted}
+                      onTaskSelected={setSelectedTask}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        <AddTaskBar
+          listId={selectedList.id}
+          onTaskCreated={handleTaskCreated}
+        />
       </div>
 
-      {/* Task Area */}
-      <div style={styles.taskArea}>
-        {loading ? (
-          <p style={styles.message}>Loading tasks...</p>
-        ) : (
-          <>
-            {/* Incomplete Tasks */}
-            {incompleteTasks.length === 0 && completedTasks.length === 0 && (
-              <p style={styles.message}>No tasks yet. Add one below.</p>
-            )}
-
-            {incompleteTasks.map((task) => (
-              <TaskItem
-                key={task.id}
-                task={task}
-                onTaskUpdated={handleTaskUpdated}
-                onTaskDeleted={handleTaskDeleted}
-              />
-            ))}
-
-            {/* Completed Section */}
-            {completedTasks.length > 0 && (
-              <div style={styles.completedSection}>
-                <p style={styles.completedLabel}>
-                  Completed ({completedTasks.length})
-                </p>
-                {completedTasks.map((task) => (
-                  <TaskItem
-                    key={task.id}
-                    task={task}
-                    onTaskUpdated={handleTaskUpdated}
-                    onTaskDeleted={handleTaskDeleted}
-                  />
-                ))}
-              </div>
-            )}
-          </>
+      {/* Right pane — detail panel, slides in */}
+      <div style={{
+        ...styles.detailPane,
+        width: selectedTask ? '320px' : '0',
+        minWidth: selectedTask ? '320px' : '0',
+        borderLeft: `1px solid ${theme.divider}`,
+        backgroundColor: theme.panelBg,
+      }}>
+        {selectedTask && (
+          <TaskDetail
+            task={selectedTask}
+            onClose={() => setSelectedTask(null)}
+            onTaskUpdated={handleTaskUpdated}
+          />
         )}
       </div>
-
-      {/* Add Task Bar */}
-      <AddTaskBar
-        listId={selectedList.id}
-        onTaskCreated={handleTaskCreated}
-      />
 
     </div>
   );
 }
 
 const styles = {
-  container: {
+  wrapper: {
+    display: 'flex',
+    flexDirection: 'row',
+    height: '100vh',
+    overflow: 'hidden',
+  },
+  listPane: {
+    flex: 1,
     display: 'flex',
     flexDirection: 'column',
-    height: '100vh',
-    backgroundColor: '#f9f9f9',
+    overflow: 'hidden',
+  },
+  detailPane: {
+    transition: 'width 0.25s ease, min-width 0.25s ease',
+    overflow: 'hidden',
+    flexShrink: 0,
   },
   header: {
     padding: '32px 32px 16px',
-    borderBottom: '1px solid #e5e5e5',
     display: 'flex',
     alignItems: 'baseline',
     gap: '12px',
@@ -120,11 +155,9 @@ const styles = {
   title: {
     fontSize: '22px',
     fontWeight: '600',
-    color: '#1a1a1a',
   },
   count: {
     fontSize: '13px',
-    color: '#999',
   },
   taskArea: {
     flex: 1,
@@ -132,20 +165,17 @@ const styles = {
     padding: '12px 32px',
   },
   message: {
-    color: '#aaa',
     fontSize: '14px',
     marginTop: '24px',
     textAlign: 'center',
   },
   completedSection: {
     marginTop: '24px',
-    borderTop: '1px solid #e5e5e5',
     paddingTop: '16px',
   },
   completedLabel: {
     fontSize: '12px',
     fontWeight: '600',
-    color: '#999',
     textTransform: 'uppercase',
     letterSpacing: '0.05em',
     marginBottom: '8px',

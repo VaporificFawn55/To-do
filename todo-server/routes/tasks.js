@@ -71,17 +71,25 @@ router.patch('/:id', async (req, res) => {
   const { id } = req.params;
   const { title, notes, due_date, is_completed } = req.body;
 
+  const updates = [];
+  const values = [];
+  let idx = 1;
+
+  if (title !== undefined)        { updates.push(`title = $${idx++}`);        values.push(title); }
+  if (notes !== undefined)        { updates.push(`notes = $${idx++}`);        values.push(notes || null); }
+  if (due_date !== undefined)     { updates.push(`due_date = $${idx++}`);     values.push(due_date || null); }
+  if (is_completed !== undefined) { updates.push(`is_completed = $${idx++}`); values.push(is_completed); }
+
+  if (updates.length === 0) {
+    return res.status(400).json({ error: 'No fields to update' });
+  }
+
+  values.push(id, req.user.id);
+
   try {
     const result = await pool.query(
-      `UPDATE tasks
-       SET
-         title = COALESCE($1, title),
-         notes = COALESCE($2, notes),
-         due_date = COALESCE($3, due_date),
-         is_completed = COALESCE($4, is_completed)
-       WHERE id = $5 AND user_id = $6
-       RETURNING *`,
-      [title, notes, due_date, is_completed, id, req.user.id]
+      `UPDATE tasks SET ${updates.join(', ')} WHERE id = $${idx} AND user_id = $${idx + 1} RETURNING *`,
+      values
     );
 
     if (result.rows.length === 0) {

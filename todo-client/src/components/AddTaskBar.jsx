@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import api from '../api/axios';
+import { useTheme } from '../context/ThemeContext';
 
 function AddTaskBar({ listId, onTaskCreated }) {
+  const { theme } = useTheme();
   const [title, setTitle] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [notes, setNotes] = useState('');
@@ -46,23 +48,22 @@ function AddTaskBar({ listId, onTaskCreated }) {
   };
 
   return (
-    <div style={styles.container}>
+    <div style={{ ...styles.container, borderTop: `1px solid ${theme.divider}`, backgroundColor: theme.panelBg }}>
       {error && <p style={styles.error}>{error}</p>}
 
-      {/* Expanded form — shows notes and due date fields */}
       {isExpanded && (
         <div style={styles.expandedFields}>
           <input
-            style={styles.notesInput}
+            style={{ ...styles.notesInput, borderColor: theme.inputBorder, color: theme.textSecondary, backgroundColor: theme.panelBg }}
             type="text"
             placeholder="Add a note (optional)"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
           />
           <div style={styles.dateRow}>
-            <label style={styles.dateLabel}>Due date</label>
+            <label style={{ ...styles.dateLabel, color: theme.textSecondary }}>Due date</label>
             <input
-              style={styles.dateInput}
+              style={{ ...styles.dateInput, borderColor: theme.inputBorder, color: theme.text, backgroundColor: theme.panelBg }}
               type="date"
               value={dueDate}
               onChange={(e) => setDueDate(e.target.value)}
@@ -71,11 +72,10 @@ function AddTaskBar({ listId, onTaskCreated }) {
         </div>
       )}
 
-      {/* Main input row */}
       <div style={styles.inputRow}>
-        <span style={styles.plusIcon}>+</span>
+        <span style={{ ...styles.plusIcon, color: theme.accent }}>+</span>
         <input
-          style={styles.input}
+          style={{ ...styles.input, color: theme.text }}
           type="text"
           placeholder="Add a task"
           value={title}
@@ -85,10 +85,7 @@ function AddTaskBar({ listId, onTaskCreated }) {
         />
         {isExpanded && (
           <button
-            style={{
-              ...styles.addBtn,
-              ...(loading ? { opacity: 0.7 } : {}),
-            }}
+            style={{ ...styles.addBtn, backgroundColor: theme.accent, ...(loading ? { opacity: 0.7 } : {}) }}
             onClick={handleSubmit}
             disabled={loading}
           >
@@ -102,8 +99,6 @@ function AddTaskBar({ listId, onTaskCreated }) {
 
 const styles = {
   container: {
-    borderTop: '1px solid #e5e5e5',
-    backgroundColor: '#fff',
     padding: '12px 32px 20px',
   },
   expandedFields: {
@@ -114,11 +109,10 @@ const styles = {
   },
   notesInput: {
     padding: '8px 12px',
-    border: '1px solid #ddd',
+    border: '1px solid',
     borderRadius: '6px',
     fontSize: '13px',
     outline: 'none',
-    color: '#555',
   },
   dateRow: {
     display: 'flex',
@@ -127,16 +121,14 @@ const styles = {
   },
   dateLabel: {
     fontSize: '13px',
-    color: '#666',
     flexShrink: 0,
   },
   dateInput: {
     padding: '6px 10px',
-    border: '1px solid #ddd',
+    border: '1px solid',
     borderRadius: '6px',
     fontSize: '13px',
     outline: 'none',
-    color: '#333',
   },
   inputRow: {
     display: 'flex',
@@ -145,7 +137,6 @@ const styles = {
   },
   plusIcon: {
     fontSize: '20px',
-    color: '#2564cf',
     fontWeight: '300',
     lineHeight: 1,
     flexShrink: 0,
@@ -155,12 +146,10 @@ const styles = {
     border: 'none',
     outline: 'none',
     fontSize: '14px',
-    color: '#1a1a1a',
     backgroundColor: 'transparent',
   },
   addBtn: {
     padding: '7px 16px',
-    backgroundColor: '#2564cf',
     color: '#fff',
     border: 'none',
     borderRadius: '6px',

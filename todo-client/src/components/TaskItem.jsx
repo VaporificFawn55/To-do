@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import api from '../api/axios';
+import { useTheme } from '../context/ThemeContext';
 
-function TaskItem({ task, onTaskUpdated, onTaskDeleted }) {
+function TaskItem({ task, onTaskUpdated, onTaskDeleted, onTaskSelected, isSelected }) {
+  const { theme } = useTheme();
   const [isHovered, setIsHovered] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -31,8 +33,7 @@ function TaskItem({ task, onTaskUpdated, onTaskDeleted }) {
 
   const formatDueDate = (dateStr) => {
     if (!dateStr) return null;
-    const date = new Date(dateStr);
-    return format(date, 'MMM d, yyyy');
+    return format(new Date(dateStr), 'MMM d, yyyy');
   };
 
   const isDueToday = (dateStr) => {
@@ -54,23 +55,26 @@ function TaskItem({ task, onTaskUpdated, onTaskDeleted }) {
     return due < today && !task.is_completed;
   };
 
+  let bgColor = 'transparent';
+  if (isSelected) bgColor = theme.taskSelected;
+  else if (isHovered) bgColor = theme.taskHover;
+
   return (
     <div
-      style={{
-        ...styles.container,
-        ...(isHovered ? styles.containerHovered : {}),
-        ...(isDeleting ? { opacity: 0.4 } : {}),
-      }}
+      style={{ ...styles.container, backgroundColor: bgColor, opacity: isDeleting ? 0.4 : 1 }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      onClick={() => onTaskSelected(task)}
     >
       {/* Checkbox */}
       <button
         style={{
           ...styles.checkbox,
-          ...(task.is_completed ? styles.checkboxChecked : {}),
+          ...(task.is_completed
+            ? { backgroundColor: theme.accent, borderColor: theme.accent }
+            : { borderColor: theme.inputBorder }),
         }}
-        onClick={handleToggleComplete}
+        onClick={(e) => { e.stopPropagation(); handleToggleComplete(); }}
       >
         {task.is_completed && <span style={styles.checkmark}>✓</span>}
       </button>
@@ -80,24 +84,22 @@ function TaskItem({ task, onTaskUpdated, onTaskDeleted }) {
         <span
           style={{
             ...styles.title,
-            ...(task.is_completed ? styles.titleCompleted : {}),
+            color: theme.text,
+            ...(task.is_completed ? { textDecoration: 'line-through', color: theme.textMuted } : {}),
           }}
         >
           {task.title}
         </span>
 
-        {/* Notes preview */}
         {task.notes && (
-          <span style={styles.notes}>{task.notes}</span>
+          <span style={{ ...styles.notes, color: theme.textMuted }}>{task.notes}</span>
         )}
 
-        {/* Due date */}
         {task.due_date && (
           <span
             style={{
               ...styles.dueDate,
-              ...(isOverdue(task.due_date) ? styles.dueDateOverdue : {}),
-              ...(isDueToday(task.due_date) ? styles.dueDateToday : {}),
+              color: isOverdue(task.due_date) ? '#d32f2f' : isDueToday(task.due_date) ? theme.accent : theme.textMuted,
             }}
           >
             📅 {formatDueDate(task.due_date)}
@@ -109,10 +111,7 @@ function TaskItem({ task, onTaskUpdated, onTaskDeleted }) {
 
       {/* Delete Button */}
       <button
-        style={{
-          ...styles.deleteBtn,
-          opacity: isHovered ? 1 : 0,
-        }}
+        style={{ ...styles.deleteBtn, color: theme.textMuted, opacity: isHovered ? 1 : 0 }}
         onClick={handleDelete}
       >
         ✕
@@ -130,16 +129,13 @@ const styles = {
     borderRadius: '8px',
     marginBottom: '4px',
     transition: 'background 0.1s',
-    cursor: 'default',
-  },
-  containerHovered: {
-    backgroundColor: '#f0f0f0',
+    cursor: 'pointer',
   },
   checkbox: {
     width: '20px',
     height: '20px',
     borderRadius: '50%',
-    border: '2px solid #bbb',
+    border: '2px solid',
     backgroundColor: 'transparent',
     cursor: 'pointer',
     flexShrink: 0,
@@ -148,10 +144,6 @@ const styles = {
     justifyContent: 'center',
     marginTop: '2px',
     transition: 'all 0.15s',
-  },
-  checkboxChecked: {
-    backgroundColor: '#2564cf',
-    borderColor: '#2564cf',
   },
   checkmark: {
     color: '#fff',
@@ -166,34 +158,20 @@ const styles = {
   },
   title: {
     fontSize: '14px',
-    color: '#1a1a1a',
     lineHeight: '1.4',
-  },
-  titleCompleted: {
-    textDecoration: 'line-through',
-    color: '#aaa',
   },
   notes: {
     fontSize: '12px',
-    color: '#888',
     whiteSpace: 'nowrap',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
   },
   dueDate: {
     fontSize: '12px',
-    color: '#888',
-  },
-  dueDateOverdue: {
-    color: '#d32f2f',
-  },
-  dueDateToday: {
-    color: '#2564cf',
   },
   deleteBtn: {
     background: 'none',
     border: 'none',
-    color: '#999',
     cursor: 'pointer',
     fontSize: '11px',
     padding: '2px 4px',

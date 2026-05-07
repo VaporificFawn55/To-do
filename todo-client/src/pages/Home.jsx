@@ -1,23 +1,24 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import Sidebar from '../components/Sidebar';
 import TaskList from '../components/TaskList';
+import SettingsModal from '../components/SettingsModal';
 import api from '../api/axios';
 
 function Home() {
   const { user, logout } = useAuth();
+  const { theme } = useTheme();
   const [lists, setLists] = useState([]);
   const [selectedList, setSelectedList] = useState(null);
-  const [loadingLists, setLoadingLists] = useState(true);
+  const [, setLoadingLists] = useState(true);
+  const [showSettings, setShowSettings] = useState(false);
 
-  // Fetch all lists when the page loads
   useEffect(() => {
     const fetchLists = async () => {
       try {
         const response = await api.get('/lists');
         setLists(response.data);
-
-        // Auto select the first list if one exists
         if (response.data.length > 0) {
           setSelectedList(response.data[0]);
         }
@@ -31,9 +32,7 @@ function Home() {
     fetchLists();
   }, []);
 
-  const handleSelectList = (list) => {
-    setSelectedList(list);
-  };
+  const handleSelectList = (list) => setSelectedList(list);
 
   const handleListCreated = (newList) => {
     setLists((prev) => [...prev, newList]);
@@ -43,15 +42,13 @@ function Home() {
   const handleListDeleted = (deletedId) => {
     const updated = lists.filter((l) => l.id !== deletedId);
     setLists(updated);
-
-    // If the deleted list was selected, select the first remaining one
     if (selectedList?.id === deletedId) {
       setSelectedList(updated.length > 0 ? updated[0] : null);
     }
   };
 
   return (
-    <div style={styles.container}>
+    <div style={{ ...styles.container, backgroundColor: theme.mainBg }}>
       <Sidebar
         user={user}
         lists={lists}
@@ -60,19 +57,22 @@ function Home() {
         onListCreated={handleListCreated}
         onListDeleted={handleListDeleted}
         onLogout={logout}
+        onOpenSettings={() => setShowSettings(true)}
       />
 
       <main style={styles.main}>
         {selectedList ? (
-          <TaskList
-            selectedList={selectedList}
-          />
+          <TaskList selectedList={selectedList} />
         ) : (
           <div style={styles.empty}>
-            <p style={styles.emptyText}>Create a list to get started</p>
+            <p style={{ ...styles.emptyText, color: theme.textMuted }}>
+              Create a list to get started
+            </p>
           </div>
         )}
       </main>
+
+      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
     </div>
   );
 }
@@ -81,7 +81,6 @@ const styles = {
   container: {
     display: 'flex',
     height: '100vh',
-    backgroundColor: '#f3f3f3',
     overflow: 'hidden',
   },
   main: {
@@ -97,7 +96,6 @@ const styles = {
     justifyContent: 'center',
   },
   emptyText: {
-    color: '#999',
     fontSize: '15px',
   },
 };
