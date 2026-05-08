@@ -30,7 +30,7 @@ function Register() {
 
     try {
       const response = await api.post('/auth/register', { email, password });
-      login(response.data.token, response.data.user);
+      login(response.data.user);
       navigate('/');
     } catch (err) {
       setError(err.response?.data?.error || 'Something went wrong');
